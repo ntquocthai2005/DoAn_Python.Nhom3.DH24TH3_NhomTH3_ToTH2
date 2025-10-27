@@ -1,14 +1,17 @@
 import tkinter as tk
 from tkinter import ttk,messagebox
-from tkcalendar import DateEntry
-import mysql.connector
+import sqlite3
 
 def connect_db():
-    return mysql.connector.connect(
-        host="localhost",
-        user="",
-        password="",
-        database="qlbanhang"
+    conn=sqlite3.connect("banhang.db")
+    return conn
+
+def create_table():
+    conn=connect_db()
+    c=conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS """
+
     )
 
 def center_window(win, w=700, h=500):

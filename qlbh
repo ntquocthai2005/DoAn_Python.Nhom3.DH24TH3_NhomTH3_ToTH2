@@ -1,0 +1,239 @@
+import os
+import sys
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image, ImageTk
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+
+# ------------------------ Utilities ------------------------
+
+def detect_system_dark_mode():
+    try:
+        if sys.platform.startswith('win'):
+            import winreg
+            registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+            key_path = r'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'
+            key = winreg.OpenKey(registry, key_path)
+            value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')
+            return 'light' if value == 1 else 'dark'
+        elif sys.platform == 'darwin':
+            cmd = "defaults read -g AppleInterfaceStyle 2>/dev/null"
+            res = os.popen(cmd).read().strip()
+            return 'dark' if res.lower() == 'dark' else 'light'
+    except Exception:
+        pass
+    return 'light'
+
+# ------------------------ Data Store ------------------------
+class DataStore:
+    def __init__(self):
+        self.products = []
+        self.customers = []
+        self.employees = []
+
+store = DataStore()
+
+# ------------------------ Main App ------------------------
+class ModernApp:
+    def __init__(self, root):
+        mode = detect_system_dark_mode()
+        theme = 'darkly' if mode == 'dark' else 'flatly'
+        self.style = tb.Style(theme=theme)
+        self.root = root
+        self.root.title('Modern Sales Manager')
+        self.root.geometry('1200x720')
+        self.root.minsize(1000, 650)
+
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill='both', expand=True)
+
+        self.sidebar_width = 220
+        self._build_sidebar()
+        self._build_header()
+        self._build_content()
+
+    # ---------------- Sidebar ----------------
+    def _build_sidebar(self):
+        self.sidebar = ttk.Frame(self.main_frame, width=self.sidebar_width)
+        self.sidebar.pack(side='left', fill='y')
+        self.sidebar.pack_propagate(False)
+
+        header = ttk.Frame(self.sidebar, height=120)
+        header.pack(fill='x')
+        header.pack_propagate(False)
+        logo = ttk.Label(header, text='  Sales Manager', anchor='w', font=('Segoe UI', 18, 'bold'))
+        logo.pack(side='left', padx=16, pady=20)
+
+        btn_frame = ttk.Frame(self.sidebar)
+        btn_frame.pack(fill='both', expand=True, pady=10)
+        self.btn_dashboard = tb.Button(btn_frame, text='Dashboard', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('dashboard'))
+        self.btn_products = tb.Button(btn_frame, text='Products', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('products'))
+        self.btn_customers = tb.Button(btn_frame, text='Customers', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('customers'))
+        self.btn_employees = tb.Button(btn_frame, text='Employees', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('employees'))
+        self.btn_stats = tb.Button(btn_frame, text='Statistics', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('statistics'))
+        for w in (self.btn_dashboard, self.btn_products, self.btn_customers, self.btn_employees, self.btn_stats):
+            w.pack(fill='x', padx=12, pady=6)
+
+        footer = ttk.Frame(self.sidebar)
+        footer.pack(fill='x', side='bottom', pady=12)
+        tb.Label(footer, text='Modern Blue UI', bootstyle='muted').pack(side='left', padx=12)
+
+    # ---------------- Header ----------------
+    def _build_header(self):
+        self.header = ttk.Frame(self.main_frame, height=64)
+        self.header.pack(fill='x')
+        self.header.pack_propagate(False)
+        title = ttk.Label(self.header, text='Quản lý bán hàng', font=('Segoe UI', 14, 'bold'))
+        title.pack(side='left', padx=20, pady=10)
+        self.quick_search_var = tk.StringVar()
+        search_entry = tb.Entry(self.header, textvariable=self.quick_search_var, width=30)
+        search_entry.pack(side='right', padx=12, pady=12)
+        tb.Button(self.header, text='Search', command=self.quick_search).pack(side='right', padx=8)
+
+    # ---------------- Content area ----------------
+    def _build_content(self):
+        self.content = ttk.Frame(self.main_frame)
+        self.content.pack(fill='both', expand=True)
+        self.notebook = ttk.Notebook(self.content)
+        self.notebook.pack(fill='both', expand=True, padx=12, pady=12)
+
+        self.tab_dashboard = ttk.Frame(self.notebook)
+        self.tab_products = ttk.Frame(self.notebook)
+        self.tab_customers = ttk.Frame(self.notebook)
+        self.tab_employees = ttk.Frame(self.notebook)
+        self.tab_statistics = ttk.Frame(self.notebook)
+
+        self.notebook.add(self.tab_dashboard, text='Dashboard')
+        self.notebook.add(self.tab_products, text='Products')
+        self.notebook.add(self.tab_customers, text='Customers')
+        self.notebook.add(self.tab_employees, text='Employees')
+        self.notebook.add(self.tab_statistics, text='Statistics')
+
+        self._build_dashboard()
+        self._build_products()
+        self._build_customers()
+        self._build_employees()
+        self._build_statistics()
+
+    def show_tab(self, key):
+        mapping = {'dashboard':0,'products':1,'customers':2,'employees':3,'statistics':4}
+        self.notebook.select(mapping.get(key,0))
+
+    def quick_search(self):
+        q = self.quick_search_var.get().strip().lower()
+        # demo search logic (products only)
+        for r in self.product_tree.get_children(): self.product_tree.delete(r)
+        for p in store.products:
+            if q in p[0].lower() or q in p[1].lower():
+                self.product_tree.insert('', 'end', values=p)
+
+    # ---------------- Dashboard ----------------
+    def _build_dashboard(self):
+        tb.Label(self.tab_dashboard, text='Dashboard', font=('Segoe UI',16,'bold')).pack(pady=12)
+        card_frame = ttk.Frame(self.tab_dashboard)
+        card_frame.pack(fill='x', padx=16)
+        for title in ['Products','Customers','Employees','Revenue']:
+            frame = ttk.Frame(card_frame, relief='raised', padding=12, width=200)
+            frame.pack_propagate(False)
+            frame.pack(side='left', padx=8, pady=8)
+            tb.Label(frame, text=title, font=('Segoe UI',12,'bold')).pack(anchor='w')
+            tb.Label(frame, text='0', font=('Segoe UI',16)).pack(anchor='w', pady=6)
+
+    # ---------------- Products Tab ----------------
+    def _build_products(self):
+        f = self.tab_products
+        left = ttk.Frame(f, width=380); left.pack(side='left', fill='y', padx=8, pady=8); left.pack_propagate(False)
+        form = ttk.LabelFrame(left, text='Product Info', padding=12); form.pack(fill='x', padx=6, pady=6)
+        ttk.Label(form, text='Code:').grid(row=0,column=0,sticky='w'); self.p_code=tb.Entry(form,width=28); self.p_code.grid(row=0,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Name:').grid(row=1,column=0,sticky='w'); self.p_name=tb.Entry(form,width=28); self.p_name.grid(row=1,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Category:').grid(row=2,column=0,sticky='w'); self.p_cat=tb.Entry(form,width=28); self.p_cat.grid(row=2,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Price:').grid(row=3,column=0,sticky='w'); self.p_price=tb.Entry(form,width=28); self.p_price.grid(row=3,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Stock:').grid(row=4,column=0,sticky='w'); self.p_stock=tb.Entry(form,width=28); self.p_stock.grid(row=4,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Image:').grid(row=5,column=0,sticky='w'); tb.Button(form,text='Choose...',bootstyle='secondary-outline',command=self.choose_image).grid(row=5,column=1,sticky='w')
+        self.p_preview = ttk.Label(form); self.p_preview.grid(row=0,column=2,rowspan=6,padx=8)
+        btns = ttk.Frame(left); btns.pack(fill='x', padx=6, pady=6)
+        for txt, cmd, style in [('Add', self.add_product, 'success'), ('Edit', self.edit_product,'warning'), ('Delete', self.delete_product,'danger'), ('Clear', self.clear_product_form,'info')]:
+            tb.Button(btns, text=txt, bootstyle=style, command=cmd).pack(side='left', padx=4)
+        right = ttk.Frame(f); right.pack(fill='both', expand=True, padx=8, pady=8)
+        columns = ('code','name','category','price','stock','img'); self.product_tree = ttk.Treeview(right, columns=columns, show='headings', selectmode='browse')
+        for col in columns[:-1]: self.product_tree.heading(col,text=col.capitalize()); self.product_tree.column(col,anchor='center')
+        self.product_tree.heading('img', text='Image Path'); self.product_tree.column('img',width=200)
+        self.product_tree.pack(fill='both', expand=True, padx=4, pady=8)
+        self.product_tree.bind('<<TreeviewSelect>>', self.on_product_select)
+
+    # ---------------- Image ----------------
+    def choose_image(self):
+        path = filedialog.askopenfilename(filetypes=[('Image files','*.png *.jpg *.jpeg *.gif')])
+        if path:
+            self.current_image_path = path
+            try: img = Image.open(path).resize((120,120)); self.imgtk=ImageTk.PhotoImage(img); self.p_preview.config(image=self.imgtk)
+            except: pass
+
+    # ---------------- Product CRUD ----------------
+    def add_product(self):
+        code=self.p_code.get().strip(); name=self.p_name.get().strip(); cat=self.p_cat.get().strip()
+        price=self.p_price.get().strip(); stock=self.p_stock.get().strip(); img=getattr(self,'current_image_path','')
+        if not code or not name: messagebox.showwarning('Validation','Code and Name required'); return
+        try: price_v=float(price) if price else 0.0; stock_v=int(stock) if stock else 0
+        except: messagebox.showwarning('Validation','Price must be number, Stock must be integer'); return
+        store.products.append((code,name,cat,price_v,stock_v,img)); self.refresh_product_table(); self.clear_product_form()
+
+    def refresh_product_table(self):
+        for r in self.product_tree.get_children(): self.product_tree.delete(r)
+        for p in store.products: self.product_tree.insert('', 'end', values=p)
+
+    def on_product_select(self,event):
+        sel=self.product_tree.selection();
+        if not sel: return
+        vals=self.product_tree.item(sel[0])['values']
+        for attr,w in zip([vals[0],vals[1],vals[2],vals[3],vals[4]],[self.p_code,self.p_name,self.p_cat,self.p_price,self.p_stock]): w.delete(0,'end'); w.insert(0,attr)
+        self.current_image_path=vals[5]
+        if self.current_image_path:
+            try: img=Image.open(self.current_image_path).resize((120,120)); self.imgtk=ImageTk.PhotoImage(img); self.p_preview.config(image=self.imgtk)
+            except: self.p_preview.config(image='')
+
+    def clear_product_form(self):
+        for w in (self.p_code,self.p_name,self.p_cat,self.p_price,self.p_stock): w.delete(0,'end')
+        self.current_image_path=''; self.p_preview.config(image='')
+
+    def edit_product(self):
+        sel=self.product_tree.selection();
+        if not sel: messagebox.showwarning('Edit','Select a product'); return
+        idx=self.product_tree.index(sel[0]); store.products[idx]=(self.p_code.get().strip(),self.p_name.get().strip(),self.p_cat.get().strip(),float(self.p_price.get().strip() or 0.0),int(self.p_stock.get().strip() or 0),getattr(self,'current_image_path',''))
+        self.refresh_product_table()
+
+    def delete_product(self):
+        sel=self.product_tree.selection();
+        if not sel: messagebox.showwarning('Delete','Select a product'); return
+        if not messagebox.askyesno('Confirm','Delete selected product?'): return
+        idx=self.product_tree.index(sel[0]); del store.products[idx]; self.refresh_product_table()
+
+    # ---------------- Customers / Employees / Statistics ----------------
+    # ... (các phần CRUD tương tự sản phẩm, giữ code gọn)
+
+# ------------------------ Login Window ------------------------
+class LoginWindow(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title('Login - Modern Sales')
+        self.geometry('420x320')
+        self.resizable(False,False)
+        frame=ttk.Frame(self,padding=18); frame.pack(fill='both',expand=True)
+        ttk.Label(frame,text='Welcome',font=('Segoe UI',18,'bold')).pack(pady=4)
+        ttk.Label(frame,text='Please sign in to continue',bootstyle='muted').pack(pady=2)
+        ttk.Label(frame,text='Username').pack(anchor='w',pady=(14,2)); self.user=tb.Entry(frame,width=32); self.user.pack()
+        ttk.Label(frame,text='Password').pack(anchor='w',pady=(12,2)); self.pw=tb.Entry(frame,width=32,show='*'); self.pw.pack()
+        tb.Button(frame,text='Sign in',bootstyle='primary',command=self.do_login).pack(pady=18)
+        tb.Button(frame,text='Quit',bootstyle='danger-outline',command=self.destroy).pack()
+
+    def do_login(self):
+        u=self.user.get().strip(); p=self.pw.get().strip()
+        if u=='admin' and p=='123': self.destroy(); root=tk.Tk(); ModernApp(root); root.mainloop()
+        else: messagebox.showerror('Login failed','Invalid username or password')
+
+# ------------------------ Run ------------------------
+if __name__=='__main__':
+    app=LoginWindow(); app.mainloop()

@@ -255,6 +255,11 @@ class ModernApp:
         self.customer_tree.grid(row=0, column=0, sticky='nsew', padx=4, pady=8)
         
         self.refresh_customer_table()
+        # ... (Sau khi Treeview đã được tạo)
+
+        self.customer_tree.bind('<<TreeviewSelect>>', self.on_customer_select)
+        
+        self.refresh_customer_table()
 
     def refresh_customer_table(self):
         for r in self.customer_tree.get_children(): self.customer_tree.delete(r)

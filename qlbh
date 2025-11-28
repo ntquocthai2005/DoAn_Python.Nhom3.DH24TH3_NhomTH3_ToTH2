@@ -10,6 +10,7 @@ from matplotlib.figure import Figure
 
 # ------------------------ Utilities ------------------------
 
+# (Giữ nguyên hàm detect_system_dark_mode)
 def detect_system_dark_mode():
     try:
         if sys.platform.startswith('win'):
@@ -30,9 +31,19 @@ def detect_system_dark_mode():
 # ------------------------ Data Store ------------------------
 class DataStore:
     def __init__(self):
-        self.products = []
-        self.customers = []
-        self.employees = []
+        # Dữ liệu mẫu (sẽ được tải từ DB trong thực tế)
+        self.products = [
+            ('P001', 'Laptop X1', 'Electronics', 1200.00, 15, ''),
+            ('P002', 'Mouse YZ', 'Peripherals', 25.50, 200, '')
+        ]
+        self.customers = [
+            ('C001', 'Nguyễn Văn A', '0901xxxxxx', 'Hà Nội'),
+            ('C002', 'Trần Thị B', '0902xxxxxx', 'TP HCM')
+        ]
+        self.employees = [
+            ('E001', 'Lê Văn C', 'Sale Manager', '01/01/2020', 1200.00),
+            ('E002', 'Phạm Thị D', 'Sales Staff', '15/05/2022', 800.00)
+        ]
 
 store = DataStore()
 
@@ -46,6 +57,8 @@ class ModernApp:
         self.root.title('Modern Sales Manager')
         self.root.geometry('1200x720')
         self.root.minsize(1000, 650)
+        
+        self.current_image_path = None # Lưu trữ đường dẫn ảnh hiện tại
 
         self.main_frame = ttk.Frame(self.root)
         self.main_frame.pack(fill='both', expand=True)
@@ -54,6 +67,9 @@ class ModernApp:
         self._build_sidebar()
         self._build_header()
         self._build_content()
+        
+        # Mặc định hiển thị Dashboard khi khởi động
+        self.show_tab('dashboard')
 
     # ---------------- Sidebar ----------------
     def _build_sidebar(self):
@@ -61,22 +77,25 @@ class ModernApp:
         self.sidebar.pack(side='left', fill='y')
         self.sidebar.pack_propagate(False)
 
+        # Header Logo
         header = ttk.Frame(self.sidebar, height=120)
         header.pack(fill='x')
         header.pack_propagate(False)
         logo = ttk.Label(header, text='  Sales Manager', anchor='w', font=('Segoe UI', 18, 'bold'))
         logo.pack(side='left', padx=16, pady=20)
 
+        # Buttons
         btn_frame = ttk.Frame(self.sidebar)
-        btn_frame.pack(fill='both', expand=True, pady=10)
-        self.btn_dashboard = tb.Button(btn_frame, text='Dashboard', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('dashboard'))
-        self.btn_products = tb.Button(btn_frame, text='Products', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('products'))
-        self.btn_customers = tb.Button(btn_frame, text='Customers', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('customers'))
-        self.btn_employees = tb.Button(btn_frame, text='Employees', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('employees'))
-        self.btn_stats = tb.Button(btn_frame, text='Statistics', bootstyle=(PRIMARY, 'outline'), command=lambda: self.show_tab('statistics'))
-        for w in (self.btn_dashboard, self.btn_products, self.btn_customers, self.btn_employees, self.btn_stats):
-            w.pack(fill='x', padx=12, pady=6)
+        btn_frame.pack(fill='y', expand=True, pady=10) # Fill Y, Expand True
+        
+        self.buttons = {}
+        # Dùng `tb.Button` với bootstyle='secondary-outline' để có hiệu ứng hover đẹp hơn
+        for text, key in [('Dashboard', 'dashboard'), ('Products', 'products'), ('Customers', 'customers'), ('Employees', 'employees'), ('Statistics', 'statistics')]:
+            btn = tb.Button(btn_frame, text=text, bootstyle=(SECONDARY, 'outline'), command=lambda k=key: self.show_tab(k))
+            btn.pack(fill='x', padx=12, pady=6)
+            self.buttons[key] = btn
 
+        # Footer
         footer = ttk.Frame(self.sidebar)
         footer.pack(fill='x', side='bottom', pady=12)
         tb.Label(footer, text='Modern Blue UI', bootstyle='muted').pack(side='left', padx=12)
@@ -96,56 +115,90 @@ class ModernApp:
     # ---------------- Content area ----------------
     def _build_content(self):
         self.content = ttk.Frame(self.main_frame)
-        self.content.pack(fill='both', expand=True)
-        self.notebook = ttk.Notebook(self.content)
-        self.notebook.pack(fill='both', expand=True, padx=12, pady=12)
+        self.content.pack(fill='both', expand=True, padx=12, pady=12) # Khung lớn
+        self.content.grid_columnconfigure(0, weight=1)
+        self.content.grid_rowconfigure(0, weight=1)
 
-        self.tab_dashboard = ttk.Frame(self.notebook)
-        self.tab_products = ttk.Frame(self.notebook)
-        self.tab_customers = ttk.Frame(self.notebook)
-        self.tab_employees = ttk.Frame(self.notebook)
-        self.tab_statistics = ttk.Frame(self.notebook)
+        # Tạo các frames riêng lẻ cho từng module
+        self.tab_frames = {}
+        self.tab_frames['dashboard'] = ttk.Frame(self.content)
+        self.tab_frames['products'] = ttk.Frame(self.content)
+        self.tab_frames['customers'] = ttk.Frame(self.content)
+        self.tab_frames['employees'] = ttk.Frame(self.content)
+        self.tab_frames['statistics'] = ttk.Frame(self.content)
 
-        self.notebook.add(self.tab_dashboard, text='Dashboard')
-        self.notebook.add(self.tab_products, text='Products')
-        self.notebook.add(self.tab_customers, text='Customers')
-        self.notebook.add(self.tab_employees, text='Employees')
-        self.notebook.add(self.tab_statistics, text='Statistics')
-
+        # Xây dựng nội dung cho từng module
         self._build_dashboard()
         self._build_products()
         self._build_customers()
         self._build_employees()
         self._build_statistics()
-
+        
     def show_tab(self, key):
-        mapping = {'dashboard':0,'products':1,'customers':2,'employees':3,'statistics':4}
-        self.notebook.select(mapping.get(key,0))
+        """Chuyển đổi hiển thị nội dung chính và cập nhật nút Sidebar."""
+        
+        # Ẩn tất cả các frames
+        for frame in self.tab_frames.values():
+            frame.grid_remove() 
+            
+        # Hiển thị frame được chọn
+        selected_frame = self.tab_frames.get(key)
+        if selected_frame:
+            selected_frame.grid(row=0, column=0, sticky="nsew")
+
+        # Cập nhật trạng thái nút Sidebar
+        for btn_key, button in self.buttons.items():
+            if btn_key == key:
+                button.config(bootstyle="info") # Nổi bật khi được chọn
+            else:
+                button.config(bootstyle="secondary-outline") # Trở về trạng thái bình thường
 
     def quick_search(self):
         q = self.quick_search_var.get().strip().lower()
-        # demo search logic (products only)
-        for r in self.product_tree.get_children(): self.product_tree.delete(r)
-        for p in store.products:
-            if q in p[0].lower() or q in p[1].lower():
-                self.product_tree.insert('', 'end', values=p)
+        # Hiện tại chỉ demo cho Products
+        current_tab = self.notebook.tab(self.notebook.select(), "text").lower()
+        if current_tab == 'products':
+            # Demo search logic (products only)
+            for r in self.product_tree.get_children(): self.product_tree.delete(r)
+            for p in store.products:
+                # Tìm kiếm theo Code hoặc Name
+                if q in p[0].lower() or q in p[1].lower():
+                    self.product_tree.insert('', 'end', values=p)
+        else:
+            messagebox.showinfo('Search', f'Searching "{q}" in {current_tab.capitalize()} module...')
 
     # ---------------- Dashboard ----------------
     def _build_dashboard(self):
-        tb.Label(self.tab_dashboard, text='Dashboard', font=('Segoe UI',16,'bold')).pack(pady=12)
-        card_frame = ttk.Frame(self.tab_dashboard)
-        card_frame.pack(fill='x', padx=16)
-        for title in ['Products','Customers','Employees','Revenue']:
-            frame = ttk.Frame(card_frame, relief='raised', padding=12, width=200)
+        f = self.tab_frames['dashboard']
+        tb.Label(f, text='Dashboard', font=('Segoe UI', 24, 'bold')).pack(pady=20, padx=20, anchor='w')
+        f.grid_columnconfigure(0, weight=1)
+        
+        # Thẻ thông tin
+        card_frame = ttk.Frame(f)
+        card_frame.pack(fill='x', padx=16, pady=8)
+        
+        data = {'Products': len(store.products), 'Customers': len(store.customers), 'Employees': len(store.employees), 'Revenue': '25,000 $'}
+        
+        for title, value in data.items():
+            frame = tb.Frame(card_frame, bootstyle='primary', padding=15, width=220)
             frame.pack_propagate(False)
-            frame.pack(side='left', padx=8, pady=8)
-            tb.Label(frame, text=title, font=('Segoe UI',12,'bold')).pack(anchor='w')
-            tb.Label(frame, text='0', font=('Segoe UI',16)).pack(anchor='w', pady=6)
+            frame.pack(side='left', padx=10, pady=10, fill='y')
+            tb.Label(frame, text=title, font=('Segoe UI', 12, 'bold'), bootstyle=(PRIMARY, INVERSE)).pack(anchor='w')
+            tb.Label(frame, text=str(value), font=('Segoe UI', 20, 'bold'), bootstyle=(PRIMARY, INVERSE)).pack(anchor='w', pady=6)
+        
+        # Placeholder cho biểu đồ
+        graph_label = tb.Label(f, text='[Placeholder for Sales Chart (Matplotlib)]', bootstyle='secondary')
+        graph_label.pack(pady=30, padx=20, fill='both', expand=True)
 
-    # ---------------- Products Tab ----------------
+    # ---------------- Products Tab (Đã có sẵn, chỉ cần gọi refresh) ----------------
     def _build_products(self):
-        f = self.tab_products
-        left = ttk.Frame(f, width=380); left.pack(side='left', fill='y', padx=8, pady=8); left.pack_propagate(False)
+        f = self.tab_frames['products']
+        f.grid_columnconfigure(1, weight=1); f.grid_rowconfigure(0, weight=1)
+        
+        left = ttk.Frame(f, width=380); left.grid(row=0, column=0, sticky='ns', padx=8, pady=8); left.pack_propagate(False)
+        right = ttk.Frame(f); right.grid(row=0, column=1, sticky='nsew', padx=8, pady=8)
+        
+        # Form (giữ nguyên)
         form = ttk.LabelFrame(left, text='Product Info', padding=12); form.pack(fill='x', padx=6, pady=6)
         ttk.Label(form, text='Code:').grid(row=0,column=0,sticky='w'); self.p_code=tb.Entry(form,width=28); self.p_code.grid(row=0,column=1,padx=6,pady=4)
         ttk.Label(form, text='Name:').grid(row=1,column=0,sticky='w'); self.p_name=tb.Entry(form,width=28); self.p_name.grid(row=1,column=1,padx=6,pady=4)
@@ -154,17 +207,331 @@ class ModernApp:
         ttk.Label(form, text='Stock:').grid(row=4,column=0,sticky='w'); self.p_stock=tb.Entry(form,width=28); self.p_stock.grid(row=4,column=1,padx=6,pady=4)
         ttk.Label(form, text='Image:').grid(row=5,column=0,sticky='w'); tb.Button(form,text='Choose...',bootstyle='secondary-outline',command=self.choose_image).grid(row=5,column=1,sticky='w')
         self.p_preview = ttk.Label(form); self.p_preview.grid(row=0,column=2,rowspan=6,padx=8)
+        
+        # Buttons (giữ nguyên)
         btns = ttk.Frame(left); btns.pack(fill='x', padx=6, pady=6)
         for txt, cmd, style in [('Add', self.add_product, 'success'), ('Edit', self.edit_product,'warning'), ('Delete', self.delete_product,'danger'), ('Clear', self.clear_product_form,'info')]:
             tb.Button(btns, text=txt, bootstyle=style, command=cmd).pack(side='left', padx=4)
-        right = ttk.Frame(f); right.pack(fill='both', expand=True, padx=8, pady=8)
+            
+        # Treeview (giữ nguyên)
+        right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
         columns = ('code','name','category','price','stock','img'); self.product_tree = ttk.Treeview(right, columns=columns, show='headings', selectmode='browse')
         for col in columns[:-1]: self.product_tree.heading(col,text=col.capitalize()); self.product_tree.column(col,anchor='center')
         self.product_tree.heading('img', text='Image Path'); self.product_tree.column('img',width=200)
-        self.product_tree.pack(fill='both', expand=True, padx=4, pady=8)
+        self.product_tree.grid(row=0, column=0, sticky='nsew', padx=4, pady=8)
         self.product_tree.bind('<<TreeviewSelect>>', self.on_product_select)
+        
+        self.refresh_product_table() # Tải dữ liệu mẫu
 
-    # ---------------- Image ----------------
+    # ---------------- Customers Tab ----------------
+    
+    def _build_customers(self):
+        f = self.tab_frames['customers']
+        f.grid_columnconfigure(1, weight=1); f.grid_rowconfigure(0, weight=1)
+        
+        left = ttk.Frame(f, width=380); left.grid(row=0, column=0, sticky='ns', padx=8, pady=8); left.pack_propagate(False)
+        right = ttk.Frame(f); right.grid(row=0, column=1, sticky='nsew', padx=8, pady=8)
+        
+        # Form Khách hàng
+        form = ttk.LabelFrame(left, text='Customer Info', padding=12); form.pack(fill='x', padx=6, pady=6)
+        ttk.Label(form, text='ID:').grid(row=0,column=0,sticky='w'); self.c_id=tb.Entry(form,width=28); self.c_id.grid(row=0,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Name:').grid(row=1,column=0,sticky='w'); self.c_name=tb.Entry(form,width=28); self.c_name.grid(row=1,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Phone:').grid(row=2,column=0,sticky='w'); self.c_phone=tb.Entry(form,width=28); self.c_phone.grid(row=2,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Address:').grid(row=3,column=0,sticky='w'); self.c_addr=tb.Entry(form,width=28); self.c_addr.grid(row=3,column=1,padx=6,pady=4)
+
+        # Buttons Khách hàng
+        # Buttons Khách hàng (Đã thêm command)
+        btns = ttk.Frame(left); btns.pack(fill='x', padx=6, pady=6)
+        
+        tb.Button(btns, text='Add', bootstyle='success', command=self.add_customer).pack(side='left', padx=4)
+        tb.Button(btns, text='Edit', bootstyle='warning', command=self.edit_customer).pack(side='left', padx=4)
+        tb.Button(btns, text='Delete', bootstyle='danger', command=self.delete_customer).pack(side='left', padx=4)
+        tb.Button(btns, text='Clear', bootstyle='info', command=self.clear_customer_form).pack(side='left', padx=4)
+
+        # Treeview Khách hàng
+        right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        columns = ('id','name','phone','address'); self.customer_tree = ttk.Treeview(right, columns=columns, show='headings', selectmode='browse')
+        for col in columns: self.customer_tree.heading(col,text=col.capitalize()); self.customer_tree.column(col,anchor='center')
+        self.customer_tree.grid(row=0, column=0, sticky='nsew', padx=4, pady=8)
+        
+        self.refresh_customer_table()
+
+    def refresh_customer_table(self):
+        for r in self.customer_tree.get_children(): self.customer_tree.delete(r)
+        for c in store.customers: self.customer_tree.insert('', 'end', values=c)
+    # ---------------- Customer CRUD ----------------
+    def add_customer(self):
+        """Thêm khách hàng mới vào store.customers."""
+        cust_id = self.c_id.get().strip()
+        name = self.c_name.get().strip()
+        phone = self.c_phone.get().strip()
+        addr = self.c_addr.get().strip()
+
+        if not cust_id or not name:
+            messagebox.showwarning('Validation', 'ID and Name are required.')
+            return
+
+        # Kiểm tra trùng ID
+        for c in store.customers:
+            if c[0] == cust_id:
+                messagebox.showerror('Validation', f'Customer ID {cust_id} already exists.')
+                return
+
+        new_customer = (cust_id, name, phone, addr)
+        store.customers.append(new_customer)
+        self.refresh_customer_table()
+        self.clear_customer_form()
+        messagebox.showinfo('Success', 'Customer added successfully.')
+
+    def edit_customer(self):
+        """Cập nhật thông tin khách hàng đã chọn."""
+        sel = self.customer_tree.selection()
+        if not sel:
+            messagebox.showwarning('Edit', 'Please select a customer to edit.')
+            return
+
+        # Lấy index của item đang được chọn trong Treeview
+        idx = self.customer_tree.index(sel[0])
+        
+        # Cập nhật dữ liệu trong store.customers tại index đó
+        new_data = (
+            self.c_id.get().strip(),
+            self.c_name.get().strip(),
+            self.c_phone.get().strip(),
+            self.c_addr.get().strip()
+        )
+        
+        # Kiểm tra ID cũ và mới có bị trùng không (nếu ID bị thay đổi)
+        old_id = store.customers[idx][0]
+        new_id = new_data[0]
+        
+        if old_id != new_id:
+            for i, c in enumerate(store.customers):
+                if i != idx and c[0] == new_id:
+                    messagebox.showerror('Validation', f'Customer ID {new_id} already exists.')
+                    return
+
+        store.customers[idx] = new_data
+        self.refresh_customer_table()
+        messagebox.showinfo('Success', 'Customer updated successfully.')
+
+
+    def delete_customer(self):
+        """Xóa khách hàng đã chọn khỏi store.customers."""
+        sel = self.customer_tree.selection()
+        if not sel:
+            messagebox.showwarning('Delete', 'Please select a customer to delete.')
+            return
+
+        if not messagebox.askyesno('Confirm', 'Are you sure you want to delete the selected customer?'):
+            return
+
+        idx = self.customer_tree.index(sel[0])
+        del store.customers[idx]
+        self.refresh_customer_table()
+        self.clear_customer_form()
+        messagebox.showinfo('Success', 'Customer deleted successfully.')
+
+    def clear_customer_form(self):
+        """Xóa trắng tất cả các trường nhập liệu."""
+        for w in (self.c_id, self.c_name, self.c_phone, self.c_addr):
+            w.delete(0, 'end')
+
+    def on_customer_select(self, event):
+        """Hàm điền dữ liệu lên form khi chọn một dòng trong Treeview."""
+        sel = self.customer_tree.selection()
+        if not sel: 
+            return
+            
+        vals = self.customer_tree.item(sel[0])['values']
+        
+        # Xóa và điền dữ liệu vào các entry
+        widgets = [self.c_id, self.c_name, self.c_phone, self.c_addr]
+        for i, w in enumerate(widgets):
+            w.delete(0, 'end')
+            w.insert(0, vals[i])
+        
+    # ---------------- Employees Tab ----------------
+    def _build_employees(self):
+        f = self.tab_frames['employees']
+        f.grid_columnconfigure(1, weight=1); f.grid_rowconfigure(0, weight=1)
+        
+        left = ttk.Frame(f, width=380); left.grid(row=0, column=0, sticky='ns', padx=8, pady=8); left.pack_propagate(False)
+        right = ttk.Frame(f); right.grid(row=0, column=1, sticky='nsew', padx=8, pady=8)
+        
+        # Form Nhân viên
+        form = ttk.LabelFrame(left, text='Employee Info', padding=12); form.pack(fill='x', padx=6, pady=6)
+        ttk.Label(form, text='ID:').grid(row=0,column=0,sticky='w'); self.e_id=tb.Entry(form,width=28); self.e_id.grid(row=0,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Name:').grid(row=1,column=0,sticky='w'); self.e_name=tb.Entry(form,width=28); self.e_name.grid(row=1,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Position:').grid(row=2,column=0,sticky='w'); self.e_pos=tb.Entry(form,width=28); self.e_pos.grid(row=2,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Join Date:').grid(row=3,column=0,sticky='w'); self.e_date=tb.Entry(form,width=28); self.e_date.grid(row=3,column=1,padx=6,pady=4)
+        ttk.Label(form, text='Salary:').grid(row=4,column=0,sticky='w'); self.e_salary=tb.Entry(form,width=28); self.e_salary.grid(row=4,column=1,padx=6,pady=4)
+
+        # Buttons Nhân viên
+        btns = ttk.Frame(left); btns.pack(fill='x', padx=6, pady=6)
+        
+        tb.Button(btns, text='Add', bootstyle='success', command=self.add_employee).pack(side='left', padx=4)
+        tb.Button(btns, text='Edit', bootstyle='warning', command=self.edit_employee).pack(side='left', padx=4)
+        tb.Button(btns, text='Delete', bootstyle='danger', command=self.delete_employee).pack(side='left', padx=4)
+        tb.Button(btns, text='Clear', bootstyle='info', command=self.clear_employee_form).pack(side='left', padx=4)
+
+        # Treeview Nhân viên (Thêm liên kết sự kiện)
+        right.grid_columnconfigure(0, weight=1); right.grid_rowconfigure(0, weight=1)
+        columns = ('id','name','position','join_date','salary'); self.employee_tree = ttk.Treeview(right, columns=columns, show='headings', selectmode='browse')
+        for col in columns: self.employee_tree.heading(col,text=col.replace('_',' ').capitalize()); self.employee_tree.column(col,anchor='center')
+        self.employee_tree.grid(row=0, column=0, sticky='nsew', padx=4, pady=8)
+        
+        # LIÊN KẾT SỰ KIỆN: Điền dữ liệu lên form khi chọn hàng
+        self.employee_tree.bind('<<TreeviewSelect>>', self.on_employee_select) 
+        
+        self.refresh_employee_table()
+
+    def refresh_employee_table(self):
+        for r in self.employee_tree.get_children(): self.employee_tree.delete(r)
+        for e in store.employees: self.employee_tree.insert('', 'end', values=e)
+    # ---------------- Employee CRUD ----------------
+    def add_employee(self):
+        """Thêm nhân viên mới vào store.employees."""
+        emp_id = self.e_id.get().strip()
+        name = self.e_name.get().strip()
+        pos = self.e_pos.get().strip()
+        jdate = self.e_date.get().strip()
+        salary_str = self.e_salary.get().strip()
+
+        if not emp_id or not name:
+            messagebox.showwarning('Validation', 'ID and Name are required.')
+            return
+
+        # Kiểm tra trùng ID
+        for e in store.employees:
+            if e[0] == emp_id:
+                messagebox.showerror('Validation', f'Employee ID {emp_id} already exists.')
+                return
+        
+        # Kiểm tra lương
+        try:
+            salary = float(salary_str)
+        except ValueError:
+            messagebox.showwarning('Validation', 'Salary must be a number.')
+            return
+
+        new_employee = (emp_id, name, pos, jdate, salary)
+        store.employees.append(new_employee)
+        self.refresh_employee_table()
+        self.clear_employee_form()
+        messagebox.showinfo('Success', 'Employee added successfully.')
+
+    def edit_employee(self):
+        """Cập nhật thông tin nhân viên đã chọn."""
+        sel = self.employee_tree.selection()
+        if not sel:
+            messagebox.showwarning('Edit', 'Please select an employee to edit.')
+            return
+
+        idx = self.employee_tree.index(sel[0])
+        
+        # Kiểm tra lương
+        try:
+            salary = float(self.e_salary.get().strip())
+        except ValueError:
+            messagebox.showwarning('Validation', 'Salary must be a number.')
+            return
+
+        new_data = (
+            self.e_id.get().strip(),
+            self.e_name.get().strip(),
+            self.e_pos.get().strip(),
+            self.e_date.get().strip(),
+            salary
+        )
+        
+        # Kiểm tra ID cũ và mới có bị trùng không (nếu ID bị thay đổi)
+        old_id = store.employees[idx][0]
+        new_id = new_data[0]
+        
+        if old_id != new_id:
+            for i, e in enumerate(store.employees):
+                if i != idx and e[0] == new_id:
+                    messagebox.showerror('Validation', f'Employee ID {new_id} already exists.')
+                    return
+
+        store.employees[idx] = new_data
+        self.refresh_employee_table()
+        messagebox.showinfo('Success', 'Employee updated successfully.')
+
+
+    def delete_employee(self):
+        """Xóa nhân viên đã chọn khỏi store.employees."""
+        sel = self.employee_tree.selection()
+        if not sel:
+            messagebox.showwarning('Delete', 'Please select an employee to delete.')
+            return
+
+        if not messagebox.askyesno('Confirm', 'Are you sure you want to delete the selected employee?'):
+            return
+
+        idx = self.employee_tree.index(sel[0])
+        del store.employees[idx]
+        self.refresh_employee_table()
+        self.clear_employee_form()
+        messagebox.showinfo('Success', 'Employee deleted successfully.')
+
+    def clear_employee_form(self):
+        """Xóa trắng tất cả các trường nhập liệu."""
+        for w in (self.e_id, self.e_name, self.e_pos, self.e_date, self.e_salary):
+            w.delete(0, 'end')
+
+    def on_employee_select(self, event):
+        """Hàm điền dữ liệu lên form khi chọn một dòng trong Treeview."""
+        sel = self.employee_tree.selection()
+        if not sel: 
+            return
+            
+        vals = self.employee_tree.item(sel[0])['values']
+        
+        # Xóa và điền dữ liệu vào các entry
+        widgets = [self.e_id, self.e_name, self.e_pos, self.e_date, self.e_salary]
+        for i, w in enumerate(widgets):
+            w.delete(0, 'end')
+            # Lương là float, cần format nếu không muốn hiển thị nhiều số 0
+            if i == 4 and isinstance(vals[i], (int, float)):
+                w.insert(0, f"{vals[i]:.2f}")
+            else:
+                w.insert(0, vals[i])
+
+    # ---------------- Statistics Tab ----------------
+    def _build_statistics(self):
+        f = self.tab_frames['statistics']
+        tb.Label(f, text='Sales Statistics', font=('Segoe UI', 24, 'bold')).pack(pady=20, padx=20, anchor='w')
+        
+        # Placeholder cho các báo cáo và biểu đồ
+        tb.Label(f, text='[Monthly Sales Report Here]', bootstyle='info').pack(pady=10, padx=20, anchor='w')
+        
+        # Thẻ tóm tắt
+        summary_frame = ttk.Frame(f)
+        summary_frame.pack(fill='x', padx=16, pady=8)
+        for title in ['Total Sales', 'Avg Transaction', 'Top Product']:
+            frame = tb.Frame(summary_frame, bootstyle='secondary', padding=15, width=280)
+            frame.pack_propagate(False)
+            frame.pack(side='left', padx=10, pady=10)
+            tb.Label(frame, text=title, font=('Segoe UI', 12, 'bold'), bootstyle=(SECONDARY, INVERSE)).pack(anchor='w')
+            tb.Label(frame, text='Data N/A', font=('Segoe UI', 16), bootstyle=(SECONDARY, INVERSE)).pack(anchor='w', pady=6)
+
+        # Khu vực biểu đồ Matplotlib (ví dụ)
+        fig = Figure(figsize=(8, 4), dpi=100)
+        ax = fig.add_subplot(111)
+        # Dữ liệu mẫu cho biểu đồ
+        data_x = ['Jan', 'Feb', 'Mar', 'Apr', 'May']
+        data_y = [1000, 1200, 900, 1500, 1800]
+        ax.plot(data_x, data_y, marker='o')
+        ax.set_title("Monthly Sales Trend")
+        
+        canvas = FigureCanvasTkAgg(fig, master=f)
+        canvas_widget = canvas.get_tk_widget()
+        canvas_widget.pack(fill='both', expand=True, padx=20, pady=20)
+
+
+    # ---------------- Image (giữ nguyên) ----------------
     def choose_image(self):
         path = filedialog.askopenfilename(filetypes=[('Image files','*.png *.jpg *.jpeg *.gif')])
         if path:
@@ -172,7 +539,7 @@ class ModernApp:
             try: img = Image.open(path).resize((120,120)); self.imgtk=ImageTk.PhotoImage(img); self.p_preview.config(image=self.imgtk)
             except: pass
 
-    # ---------------- Product CRUD ----------------
+    # ---------------- Product CRUD (giữ nguyên) ----------------
     def add_product(self):
         code=self.p_code.get().strip(); name=self.p_name.get().strip(); cat=self.p_cat.get().strip()
         price=self.p_price.get().strip(); stock=self.p_stock.get().strip(); img=getattr(self,'current_image_path','')
@@ -210,13 +577,15 @@ class ModernApp:
         if not sel: messagebox.showwarning('Delete','Select a product'); return
         if not messagebox.askyesno('Confirm','Delete selected product?'): return
         idx=self.product_tree.index(sel[0]); del store.products[idx]; self.refresh_product_table()
-
-    # ---------------- Customers / Employees / Statistics ----------------
-    # ... (các phần CRUD tương tự sản phẩm, giữ code gọn)
-
+        
 # ------------------------ Login Window ------------------------
 class LoginWindow(tk.Tk):
     def __init__(self):
+        # Thiết lập theme cho cửa sổ login
+        mode = detect_system_dark_mode()
+        theme = 'darkly' if mode == 'dark' else 'flatly'
+        self.style = tb.Style(theme=theme)
+        
         super().__init__()
         self.title('Login - Modern Sales')
         self.geometry('420x320')
@@ -231,8 +600,15 @@ class LoginWindow(tk.Tk):
 
     def do_login(self):
         u=self.user.get().strip(); p=self.pw.get().strip()
-        if u=='admin' and p=='123': self.destroy(); root=tk.Tk(); ModernApp(root); root.mainloop()
-        else: messagebox.showerror('Login failed','Invalid username or password')
+        if u=='admin' and p=='123': 
+            self.destroy()
+            # Khởi tạo cửa sổ ứng dụng chính sau khi đăng nhập thành công
+            root = tk.Tk()
+            ModernApp(root)
+            root.mainloop()
+        else:
+        
+            messagebox.showerror('Login failed','Invalid username or password')
 
 # ------------------------ Run ------------------------
 if __name__=='__main__':

@@ -10,7 +10,6 @@ from matplotlib.figure import Figure
 
 # ------------------------ Utilities ------------------------
 
-# (Giữ nguyên hàm detect_system_dark_mode)
 def detect_system_dark_mode():
     try:
         if sys.platform.startswith('win'):

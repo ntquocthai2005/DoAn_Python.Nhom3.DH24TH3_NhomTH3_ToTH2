@@ -25,7 +25,7 @@ def get_db_connection():
         return None
 
 # =============================================================================
-# 2. XỬ LÝ DỮ LIỆU (BACKEND SQL)
+# 2. XỬ LÝ DỮ LIỆU 
 # =============================================================================
 class DataManager:
     # --- ĐĂNG NHẬP ---
@@ -33,23 +33,23 @@ class DataManager:
         u = self.u.get().strip()
         p = self.p.get().strip()
         
-        print(f"--- ĐANG THỬ ĐĂNG NHẬP: User={u}, Pass={p} ---") # <--- THÊM DÒNG NÀY
+        print(f"--- ĐANG THỬ ĐĂNG NHẬP: User={u}, Pass={p} ---") 
         
         # Gọi hàm kiểm tra từ class DataManager (Kết nối SQL)
         try:
             user_info = db.check_login(u, p)
-            print(f"--- KẾT QUẢ TỪ SQL: {user_info} ---") # <--- THÊM DÒNG NÀY
+            print(f"--- KẾT QUẢ TỪ SQL: {user_info} ---") 
         except Exception as e:
-            print(f"--- LỖI KHI GỌI SQL: {e} ---") # <--- THÊM DÒNG NÀY
+            print(f"--- LỖI KHI GỌI SQL: {e} ---") 
             return
 
         if user_info:
-            print("--- ĐĂNG NHẬP THÀNH CÔNG! ĐANG MỞ APP CHÍNH... ---") # <--- THÊM DÒNG NÀY
+            print("--- ĐĂNG NHẬP THÀNH CÔNG! ĐANG MỞ APP CHÍNH... ---") 
             self.withdraw()
             def show(): self.deiconify(); self.u.delete(0,'end'); self.p.delete(0,'end')
             ModernApp(tb.Toplevel(self), user_data=user_info, logout_callback=show)
         else:
-            print("--- ĐĂNG NHẬP THẤT BẠI ---") # <--- THÊM DÒNG NÀY
+            print("--- ĐĂNG NHẬP THẤT BẠI ---") 
             messagebox.showerror('Lỗi', 'Sai thông tin hoặc chưa kết nối DB!\nKiểm tra Terminal để xem chi tiết.')
     def check_login(self, username, password):
         conn = get_db_connection()

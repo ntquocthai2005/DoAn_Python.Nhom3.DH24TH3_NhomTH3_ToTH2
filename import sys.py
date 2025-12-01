@@ -250,7 +250,7 @@ class ModernApp:
         fig.patch.set_facecolor('#2b3e50')
         ax.pie(sales, labels=months, autopct='%1.1f%%', textprops={'color':"w"})
         FigureCanvasTkAgg(fig, master=parent).get_tk_widget().pack(fill='both', expand=True)
-        
+
     def search_focused(self):
         query = self.search_var.get().strip().lower()
         if not query: messagebox.showinfo("TB", "Nhập từ khóa!"); return
